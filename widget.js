@@ -175,19 +175,41 @@
       log("reviews.json was not an array", reviews);
       return data;
     }
+    // Whether a review's topic is the general "… for Health & Longevity" one
+    // (vs. a condition-specific angle like "… to Treat Cancer"). canonical_topic
+    // is optional in reviews.json — absent → false, so this is a no-op until the
+    // upstream field lands.
+    function isGeneralTopic(review) {
+      var t = String(review.canonical_topic || "").toLowerCase();
+      return t.indexOf("health & longevity") !== -1 ||
+             t.indexOf("health and longevity") !== -1;
+    }
+    var strong = {}; // keys claimed by Pass 1 — never overridden by an alternate
     function claim(k, review) {
       var key = norm(k);
-      if (key && !data.byKey[key]) data.byKey[key] = review;
+      if (key && !data.byKey[key]) { data.byKey[key] = review; strong[key] = true; }
+    }
+    // When an ALTERNATE name matches two reviews (e.g. "Ascorbic Acid" is an
+    // alternate of both "Vitamin C" and "High-Dose Vitamin C to Treat Cancer"),
+    // prefer the general health-&-longevity review over a condition-specific one.
+    // Any other collision keeps first-in-array order, as before.
+    function claimAlt(k, review) {
+      var key = norm(k);
+      if (!key || strong[key]) return;                 // strong keys always win
+      var cur = data.byKey[key];
+      if (!cur || (isGeneralTopic(review) && !isGeneralTopic(cur)))
+        data.byKey[key] = review;
     }
     // Pass 1: strong keys — slug, id, canonical name, permalink tail.
     reviews.forEach(function (review) {
       [review.slug, review.id, review.canonical_name, permalinkTail(review.permalink)]
         .forEach(function (k) { claim(k, review); });
     });
-    // Pass 2: alternate names — only for keys no strong key already took.
+    // Pass 2: alternate names — only for keys no strong key already took, with
+    // the generic-preference tie-break above when two alternates collide.
     reviews.forEach(function (review) {
       (Array.isArray(review.alternate_names) ? review.alternate_names : [])
-        .forEach(function (k) { claim(k, review); });
+        .forEach(function (k) { claimAlt(k, review); });
     });
     // Names (for auto matching) + acronym-casing map, from canonical + alternates.
     reviews.forEach(function (review) {
