@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>evipedia-widget — automatic mode</title>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    font: 17px/1.7 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    max-width: 42rem; margin: 4rem auto; padding: 0 1.25rem; color: #1c1c1c;
+  }
+  h1 { font-size: 1.6rem; }
+  .lede { color: #555; }
+  .other { font-size: .95rem; margin: 1.25rem 0; }
+  .note {
+    margin-top: 3rem; padding: 1rem 1.25rem; border-left: 3px solid #ccc;
+    background: #f6f6f6; color: #444; font-size: .92rem; border-radius: 4px;
+  }
+  @media (prefers-color-scheme: dark) {
+    body { color: #e6e6e6; } .lede { color: #aaa; }
+    .note { background: #1e1e1e; border-color: #444; color: #bbb; }
+  }
+</style>
+</head>
+<body>
+
+<img src="./evipedia-header.png" alt="evipedia.ai" style="max-width:100%;height:auto;display:block;margin:0 0 2rem">
+
+<h1>Evipedia Widget — Automatic Mode</h1>
+<p class="lede">
+  Loads the real <code>widget.js</code> against live evipedia.ai data in
+  <b>auto</b> mode. Nothing on this page is marked up — the widget scans the
+  text itself and highlights every review name it recognizes.
+</p>
+<p class="other">→ See also the <a href="./demo-manual.html">manual mode demo</a>.</p>
+
+<p>
+  The evidence base for supplements varies widely. Some people take creatine for strength
+  and muscle mass, use melatonin to shift sleep timing, or reach for magnesium for cramps.
+  In cardiometabolic health, metformin and statins are frequently discussed, and riboflavin
+  has been trialed for migraine prophylaxis.
+</p>
+
+<p>
+  Auto mode is deliberately non-intrusive elsewhere: links like
+  <a href="https://evipedia.ai">creatine</a>, <code>melatonin</code> inside code, and
+  form fields like <input type="text" value="metformin" size="12"> are all left untouched.
+</p>
+
+<div class="note">
+  <b>Note.</b> Cards render in a Shadow DOM, isolated from this page's styles. Only terms
+  that resolve against <code>reviews.json</code> get the dotted underline; unknown or
+  unmarked terms are left alone.
+</div>
+
+<!-- In production: <script src="https://evipedia.ai/widget.js"></script> -->
+<script src="../widget.js"></script>
+<script>evipedia.init({ mode: "auto", debug: true })</script>
+
+</body>
+</html>
