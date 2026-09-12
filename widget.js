@@ -18,7 +18,7 @@
 (function (global) {
   "use strict";
 
-  var VERSION = "0.1.0";
+  var VERSION = "1.0.3";
 
   var BASE_URL = "https://evipedia.ai"; // where reviews.json and reviews are served
   var ATTR = "data-evipedia";           // attribute that marks opt-in terms
@@ -434,10 +434,50 @@
     });
     var list = Object.keys(uniq).map(function (k) { return uniq[k]; });
     list.sort(function (a, b) { return b.length - a.length; });
+    // Kept alongside the regex (still longest-first) so a rejected match can be
+    // retried against the shorter names nested inside it — see nameLenAt().
+    data.__list = list;
+    data.__lower = list.map(function (n) { return n.toLowerCase(); });
     data.__pattern = list.length
       ? new RegExp("(^|[^A-Za-z0-9])(" + list.map(escapeRegExp).join("|") + ")(?![A-Za-z0-9])", "gi")
       : null;
     return data.__pattern;
+  }
+
+  // Length of the longest known name SHORTER than maxLen that starts exactly at
+  // `start` in `lowerText` and ends on a word boundary — or 0 if there is none.
+  // data.__lower is longest-first, so the first hit is the longest candidate.
+  function nameLenAt(lowerText, start, maxLen, data) {
+    var lower = data.__lower;
+    for (var i = 0; i < lower.length; i++) {
+      var n = lower[i], len = n.length;
+      if (len >= maxLen) continue;                       // longest-first: not there yet
+      if (lowerText.substr(start, len) !== n) continue;
+      var after = lowerText.charAt(start + len);
+      if (after && /[a-z0-9]/.test(after)) continue;     // must end on a boundary
+      return len;
+    }
+    return 0;
+  }
+
+  // The review an auto-matched surface form links to, or null when the match has
+  // to be rejected: an acronym seen in the wrong casing, an unknown name, a link
+  // back to the page we're on, or a term already linked under autoLinkOnce.
+  function resolveAuto(name, data) {
+    var key = norm(name);
+    var forms = data.acronymForms[key];
+    // Layer 1: an acronym name only counts in its exact casing, so the ordinary
+    // lowercase word ("same", "age", "hit") never links to the supplement,
+    // while the real acronym ("SAMe", "AGE", "HIT") does.
+    if (forms && forms.indexOf(name) === -1) return null;
+    var review = data.byKey[key];
+    if (!review) return null;
+    if (pointsToCurrentPage(review)) return null;        // don't link a page to itself
+    // autoLinkOnce de-dupes on the TERM, not the review: a review referenced by
+    // several names (e.g. "Evolocumab" and its brand "Repatha") highlights each
+    // distinct word once, rather than only the first-seen surface form.
+    if (config.autoLinkOnce && linkedTerms[key]) return null;
+    return review;
   }
 
   // Should this text node's content be considered for auto-linking?
@@ -454,26 +494,34 @@
   }
 
   // Replace known names inside one text node with bound term spans.
+  //
+  // The regex matches longest-first, so the name it finds at a given spot may be
+  // one we have to reject (self-link, wrong acronym casing, already linked). A
+  // rejected match must NOT swallow the text it covers, or a longer name would
+  // hide a perfectly good shorter one inside it and the term would only light up
+  // at some later occurrence on the page — e.g. the entry "silymarin (milk
+  // thistle); Bacopa monnieri" hiding both "silymarin" and "Bacopa monnieri".
+  // So on a rejection we retry with the shorter names starting at the same spot,
+  // and failing that resume one character in rather than past the whole match,
+  // so names nested further inside it still get their turn.
   function autoWrap(node, data, pattern) {
     var text = node.nodeValue;
+    var lowerText = null; // built on first rejection only
     pattern.lastIndex = 0;
     var frag = null, last = 0, added = 0, m;
     while ((m = pattern.exec(text))) {
-      var name = m[2];
       var start = m.index + m[1].length; // skip the boundary char captured in m[1]
-      var key = norm(name);
-      // Layer 1: an acronym name only counts in its exact casing, so the ordinary
-      // lowercase word ("same", "age", "hit") never links to the supplement,
-      // while the real acronym ("SAMe", "AGE", "HIT") does.
-      var forms = data.acronymForms[key];
-      if (forms && forms.indexOf(name) === -1) continue;
-      var review = data.byKey[key];
-      if (!review) continue;
-      if (pointsToCurrentPage(review)) continue; // don't link a page to itself
-      // autoLinkOnce de-dupes on the TERM, not the review: a review referenced by
-      // several names (e.g. "Evolocumab" and its brand "Repatha") highlights each
-      // distinct word once, rather than only the first-seen surface form.
-      if (config.autoLinkOnce && linkedTerms[key]) continue;
+      var name = m[2];
+      var review = null;
+      while (name) {
+        review = resolveAuto(name, data);
+        if (review) break;
+        if (lowerText === null) lowerText = text.toLowerCase();
+        var len = nameLenAt(lowerText, start, name.length, data);
+        name = len ? text.substr(start, len) : null;
+      }
+      if (!name) { pattern.lastIndex = start + 1; continue; }
+      pattern.lastIndex = start + name.length; // may be shorter than the raw match
       if (!frag) frag = document.createDocumentFragment();
       frag.appendChild(document.createTextNode(text.slice(last, start)));
       var span = document.createElement("span");
@@ -483,7 +531,7 @@
       frag.appendChild(span);
       last = start + name.length;
       added++;
-      if (config.autoLinkOnce) linkedTerms[key] = true;
+      if (config.autoLinkOnce) linkedTerms[norm(name)] = true;
     }
     if (frag) {
       frag.appendChild(document.createTextNode(text.slice(last)));
