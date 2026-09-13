@@ -1,6 +1,10 @@
 # Evipedia Widget - Change Log
 
 
+### v1.0.6 — 2026-09-13
+
+* More everyday words are no longer auto-highlighted on their own: "adam", "molly" (MDMA), "elder" (Elderberry), "bailing" (Cordyceps), "vegetal" (Ayahuasca), "melissa" (Lemon Balm) — explicit data-evipedia marks still work
+
 ### v1.0.5 — 2026-09-13
 
 * "acid" is no longer auto-highlighted on its own: it matched the LSD review's slang alternate name, so e.g. "fatty acid" linked to LSD (names containing it, like "Citric Acid", still match; explicit data-evipedia marks still work)

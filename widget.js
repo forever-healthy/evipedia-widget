@@ -18,7 +18,7 @@
 (function (global) {
   "use strict";
 
-  var VERSION = "1.0.5";
+  var VERSION = "1.0.6";
 
   var BASE_URL = "https://evipedia.ai"; // where reviews.json and reviews are served
   var ATTR = "data-evipedia";           // attribute that marks opt-in terms
@@ -48,7 +48,8 @@
   //
   // Keep this list tiny and deliberate — only add a term after confirming its
   // everyday meaning is almost never the intervention.
-  var AUTO_STOPWORDS = { "his": 1, "gal": 1, "sar": 1, "acid": 1 };
+  var AUTO_STOPWORDS = { "his": 1, "gal": 1, "sar": 1, "acid": 1, "adam": 1, "molly": 1,
+    "elder": 1, "bailing": 1, "vegetal": 1, "melissa": 1 };
 
   var config = null;         // resolved options, set by init()
   var indexPromise = null;   // Promise<{ byKey, names }>, reviews.json fetched once
