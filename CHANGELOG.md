@@ -1,6 +1,10 @@
 # Evipedia Widget - Change Log
 
 
+### v1.0.5 — 2026-09-13
+
+* "acid" is no longer auto-highlighted on its own: it matched the LSD review's slang alternate name, so e.g. "fatty acid" linked to LSD (names containing it, like "Citric Acid", still match; explicit data-evipedia marks still work)
+
 ### v1.0.4 — 2026-09-13
 
 * On an ambiguous alternate-name match between equally general reviews, link the review whose own name contains the term (e.g. "Aspirin" → Low-Dose Aspirin, not the ECA stack — which also fixes aspirin not being highlighted on the ECA review page)

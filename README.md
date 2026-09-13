@@ -1,4 +1,4 @@
-![Version 1.0.4](https://img.shields.io/badge/Version-1.0.4-green.svg)
+![Version 1.0.5](https://img.shields.io/badge/Version-1.0.5-green.svg)
 [![Forever Healthy](https://img.shields.io/badge/(c)_2026-Forever_Healthy-573D7D.svg)](https://forever-healthy.org)
 ![evipedia.ai](./docs/evipedia-header.png)
 
