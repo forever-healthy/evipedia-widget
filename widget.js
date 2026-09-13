@@ -18,7 +18,7 @@
 (function (global) {
   "use strict";
 
-  var VERSION = "1.0.3";
+  var VERSION = "1.0.4";
 
   var BASE_URL = "https://evipedia.ai"; // where reviews.json and reviews are served
   var ATTR = "data-evipedia";           // attribute that marks opt-in terms
@@ -189,15 +189,24 @@
       var key = norm(k);
       if (key && !data.byKey[key]) { data.byKey[key] = review; strong[key] = true; }
     }
-    // When an ALTERNATE name matches two reviews (e.g. "Ascorbic Acid" is an
-    // alternate of both "Vitamin C" and "High-Dose Vitamin C to Treat Cancer"),
-    // prefer the general health-&-longevity review over a condition-specific one.
-    // Any other collision keeps first-in-array order, as before.
+    // When an ALTERNATE name matches two reviews, rank the candidates:
+    //   1. the general health-&-longevity review over a condition-specific one
+    //      (e.g. "Ascorbic Acid": "Vitamin C" over "High-Dose Vitamin C to Treat
+    //      Cancer"; "Retinol": "Vitamin A" over "Topical Retinol" for skin).
+    //   2. the review whose canonical name contains the term as a whole word —
+    //      "Aspirin" is an alternate of both "ECA" (a combination stack) and
+    //      "Low-Dose Aspirin"; the dedicated aspirin review should win.
+    // Ties keep first-in-array order.
+    function altScore(key, review) {
+      var cn = norm(review.canonical_name);
+      var named = new RegExp("(^|[^a-z0-9])" + escapeRegExp(key) + "($|[^a-z0-9])").test(cn);
+      return (isGeneralTopic(review) ? 2 : 0) + (named ? 1 : 0);
+    }
     function claimAlt(k, review) {
       var key = norm(k);
       if (!key || strong[key]) return;                 // strong keys always win
       var cur = data.byKey[key];
-      if (!cur || (isGeneralTopic(review) && !isGeneralTopic(cur)))
+      if (!cur || altScore(key, review) > altScore(key, cur))
         data.byKey[key] = review;
     }
     // Pass 1: strong keys — slug, id, canonical name, permalink tail.
