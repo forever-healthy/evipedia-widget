@@ -1,4 +1,4 @@
-![Version 1.0.7](https://img.shields.io/badge/Version-1.0.7-green.svg)
+![Version 1.0.8](https://img.shields.io/badge/Version-1.0.8-green.svg)
 [![Forever Healthy](https://img.shields.io/badge/(c)_2026-Forever_Healthy-573D7D.svg)](https://forever-healthy.org)
 ![evipedia.ai](./docs/evipedia-header.png)
 
@@ -35,6 +35,7 @@ The widget runs in one of two modes, set via `mode`:
 A few things to know:
 
 - **It safely skips** links, buttons, code/`pre`, form fields, editable regions, and already-marked terms, so it never nests or double-links.
+- **Plurals match too:** a trailing "s" ("statins", "GLP-1s") links to the singular's review.
 - **Very short names can be noisy.** Use `minAutoLength` to ignore review names shorter than a given number of characters (default `3`).
 - **It rewrites the DOM**, wrapping matches in `<span class="evipedia-term">`. For dynamically added content, call `evipedia.scan()` again after the content has loaded, or set `observe: true` to rescan automatically.
 

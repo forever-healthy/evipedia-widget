@@ -18,7 +18,7 @@
 (function (global) {
   "use strict";
 
-  var VERSION = "1.0.7";
+  var VERSION = "1.0.8";
 
   var BASE_URL = "https://evipedia.ai"; // where reviews.json and reviews are served
   var ATTR = "data-evipedia";           // attribute that marks opt-in terms
@@ -449,14 +449,31 @@
     // retried against the shorter names nested inside it — see nameLenAt().
     data.__list = list;
     data.__lower = list.map(function (n) { return n.toLowerCase(); });
+    // (s?) also matches a plural — "statins", "GLP-1s" — looked up by the singular.
     data.__pattern = list.length
-      ? new RegExp("(^|[^A-Za-z0-9])(" + list.map(escapeRegExp).join("|") + ")(?![A-Za-z0-9])", "gi")
+      ? new RegExp("(^|[^A-Za-z0-9])(" + list.map(escapeRegExp).join("|") + ")(s?)(?![A-Za-z0-9])", "gi")
       : null;
     return data.__pattern;
   }
 
+  function boundaryAt(text, i) {
+    var c = text.charAt(i);
+    return !c || !/[A-Za-z0-9]/.test(c);
+  }
+
+  // Plural suffix after the name at text[start, start+len): "s", "S" or "". An
+  // uppercase "S" never pluralises an acronym ("AGES" is not "AGE"), so it
+  // returns null there to reject the match.
+  function pluralAt(text, start, len, data) {
+    var c = text.charAt(start + len);
+    if ((c !== "s" && c !== "S") || !boundaryAt(text, start + len + 1)) return "";
+    if (c === "S" && data.acronymForms[norm(text.substr(start, len))]) return null;
+    return c;
+  }
+
   // Length of the longest known name SHORTER than maxLen that starts exactly at
-  // `start` in `lowerText` and ends on a word boundary — or 0 if there is none.
+  // `start` in `lowerText` and ends on a word boundary, optionally after a plural
+  // "s" (see pluralAt) — or 0 if there is none.
   // data.__lower is longest-first, so the first hit is the longest candidate.
   function nameLenAt(lowerText, start, maxLen, data) {
     var lower = data.__lower;
@@ -464,8 +481,8 @@
       var n = lower[i], len = n.length;
       if (len >= maxLen) continue;                       // longest-first: not there yet
       if (lowerText.substr(start, len) !== n) continue;
-      var after = lowerText.charAt(start + len);
-      if (after && /[a-z0-9]/.test(after)) continue;     // must end on a boundary
+      if (!boundaryAt(lowerText, start + len) &&
+          !(lowerText.charAt(start + len) === "s" && boundaryAt(lowerText, start + len + 1))) continue;
       return len;
     }
     return 0;
@@ -523,24 +540,26 @@
     while ((m = pattern.exec(text))) {
       var start = m.index + m[1].length; // skip the boundary char captured in m[1]
       var name = m[2];
-      var review = null;
+      var review = null, plural = "";
       while (name) {
-        review = resolveAuto(name, data);
+        plural = pluralAt(text, start, name.length, data);
+        review = plural === null ? null : resolveAuto(name, data);
         if (review) break;
         if (lowerText === null) lowerText = text.toLowerCase();
         var len = nameLenAt(lowerText, start, name.length, data);
         name = len ? text.substr(start, len) : null;
       }
       if (!name) { pattern.lastIndex = start + 1; continue; }
-      pattern.lastIndex = start + name.length; // may be shorter than the raw match
+      var end = start + name.length + plural.length; // include a plural "s"
+      pattern.lastIndex = end; // may be shorter than the raw match
       if (!frag) frag = document.createDocumentFragment();
       frag.appendChild(document.createTextNode(text.slice(last, start)));
       var span = document.createElement("span");
       span.setAttribute(ATTR, norm(name));
-      span.textContent = name;
+      span.textContent = name + plural;
       enhance(span, review);
       frag.appendChild(span);
-      last = start + name.length;
+      last = end;
       added++;
       if (config.autoLinkOnce) linkedTerms[norm(name)] = true;
     }

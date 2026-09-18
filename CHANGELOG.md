@@ -1,6 +1,10 @@
 # Evipedia Widget - Change Log
 
 
+### v1.0.8 — 2026-09-18
+
+* Auto mode now matches plurals: a trailing "s" ("statins", "GLP-1s", "AGEs") links to the singular's review. An uppercase "S" never pluralises an acronym ("AGES" is not AGE)
+
 ### v1.0.7 — 2026-09-18
 
 * New opt-in `observe` option: watches the page for content added or edited after load (single-page apps, infinite scroll) and highlights terms in it automatically, throttled to one pass per burst of changes
