@@ -1,6 +1,10 @@
 # Evipedia Widget - Change Log
 
 
+### v1.0.7 — 2026-09-18
+
+* New opt-in `observe` option: watches the page for content added or edited after load (single-page apps, infinite scroll) and highlights terms in it automatically, throttled to one pass per burst of changes
+
 ### v1.0.6 — 2026-09-13
 
 * More everyday words are no longer auto-highlighted on their own: "adam", "molly" (MDMA), "elder" (Elderberry), "bailing" (Cordyceps), "vegetal" (Ayahuasca), "melissa" (Lemon Balm) — explicit data-evipedia marks still work

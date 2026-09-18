@@ -18,7 +18,7 @@
 (function (global) {
   "use strict";
 
-  var VERSION = "1.0.6";
+  var VERSION = "1.0.7";
 
   var BASE_URL = "https://evipedia.ai"; // where reviews.json and reviews are served
   var ATTR = "data-evipedia";           // attribute that marks opt-in terms
@@ -29,6 +29,7 @@
     autoLinkOnce: true,             // auto mode: link each distinct term at most once
     showDelay: 120,                 // ms hover-in before the card appears
     hideDelay: 220,                 // ms grace so the pointer can reach the card
+    observe: false,                 // rescan content added after load (SPAs), see observe()
     debug: false
   };
 
@@ -550,13 +551,19 @@
     return added;
   }
 
-  function autoScan(data) {
+  // Scan `root` (default: the whole body) — an element subtree or one text node.
+  function autoScan(data, root) {
     var pattern = autoPattern(data);
-    if (!pattern || !document.body) return 0;
-    // Collect first — we must not mutate the tree while walking it.
-    var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null);
+    root = root || document.body;
+    if (!pattern || !root) return 0;
     var nodes = [], node;
-    while ((node = walker.nextNode())) if (autoEligible(node)) nodes.push(node);
+    if (root.nodeType === 3) {
+      if (autoEligible(root)) nodes.push(root);
+    } else {
+      // Collect first — we must not mutate the tree while walking it.
+      var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+      while ((node = walker.nextNode())) if (autoEligible(node)) nodes.push(node);
+    }
     var added = 0;
     nodes.forEach(function (n) { added += autoWrap(n, data, pattern); });
     return added;
@@ -568,9 +575,60 @@
     return loadIndex().then(function (data) {
       var enhanced = manualScan(data);
       if (config.mode === "auto") enhanced += autoScan(data);
+      ignoreOwnMutations();
       log("enhanced", enhanced, "term(s)");
       return enhanced;
     });
+  }
+
+  // Opt-in (`observe: true`): single-page apps render content after load and on
+  // client-side navigation/infinite scroll. Watch for added or edited text and
+  // scan just those subtrees, throttled so a burst of mutations costs one pass.
+  //
+  // Off by default because auto mode rewrites text nodes into spans, which a
+  // framework (React, Vue, ...) that owns those nodes may not expect; sites
+  // that embed the widget can call evipedia.scan() after their own renders.
+  var OBSERVE_DELAY = 250;
+  var observer = null;
+
+  // Drop the records our own DOM rewrites just queued, so they don't trigger a
+  // rescan. Safe: scanning is synchronous, so no page mutation can interleave.
+  function ignoreOwnMutations() {
+    if (observer) observer.takeRecords();
+  }
+
+  function observe() {
+    if (observer || !window.MutationObserver || !document.body) return;
+    var roots = [], timer = null;
+
+    function flush() {
+      timer = null;
+      var pending = roots;
+      roots = [];
+      loadIndex().then(function (data) {
+        var enhanced = manualScan(data);
+        if (config.mode === "auto") {
+          pending.forEach(function (r) { if (r.isConnected) enhanced += autoScan(data, r); });
+        }
+        ignoreOwnMutations();
+        if (enhanced) log("observer enhanced", enhanced, "term(s)");
+      });
+    }
+
+    observer = new MutationObserver(function (records) {
+      for (var i = 0; i < records.length; i++) {
+        var rec = records[i];
+        if (rec.type === "characterData") roots.push(rec.target);
+        else {
+          for (var j = 0; j < rec.addedNodes.length; j++) {
+            var n = rec.addedNodes[j];
+            if (n.nodeType === 1 || n.nodeType === 3) roots.push(n);
+          }
+        }
+      }
+      if (!timer && roots.length) timer = setTimeout(flush, OBSERVE_DELAY);
+    });
+    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
   }
 
   // ---- public API ---------------------------------------------------------
@@ -588,7 +646,7 @@
     onReady(function () {
       ensureAffordanceStyles();
       if (!ui) ui = createUI();
-      scan();
+      scan().then(function () { if (config.observe) observe(); });
     });
   }
 

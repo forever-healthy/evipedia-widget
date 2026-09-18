@@ -1,4 +1,4 @@
-![Version 1.0.6](https://img.shields.io/badge/Version-1.0.6-green.svg)
+![Version 1.0.7](https://img.shields.io/badge/Version-1.0.7-green.svg)
 [![Forever Healthy](https://img.shields.io/badge/(c)_2026-Forever_Healthy-573D7D.svg)](https://forever-healthy.org)
 ![evipedia.ai](./docs/evipedia-header.png)
 
@@ -36,7 +36,7 @@ A few things to know:
 
 - **It safely skips** links, buttons, code/`pre`, form fields, editable regions, and already-marked terms, so it never nests or double-links.
 - **Very short names can be noisy.** Use `minAutoLength` to ignore review names shorter than a given number of characters (default `3`).
-- **It rewrites the DOM**, wrapping matches in `<span class="evipedia-term">`. For dynamically added content, call `evipedia.scan()` again after the content has loaded.
+- **It rewrites the DOM**, wrapping matches in `<span class="evipedia-term">`. For dynamically added content, call `evipedia.scan()` again after the content has loaded, or set `observe: true` to rescan automatically.
 
 **`"manual"`** — only enhances terms you've marked with `data-evipedia` (see [Manually marking terms](#manually-marking-terms) below). Nothing is highlighted unless you ask for it:
 
@@ -65,6 +65,7 @@ The `data-evipedia` value is matched (case-insensitively) against each review's 
 | `minAutoLength` | `3` | Auto mode: ignore review names shorter than this many characters |
 | `showDelay` | `120` | ms to hover before the card appears |
 | `hideDelay` | `220` | ms grace after leaving, so the pointer can reach the card |
+| `observe` | `false` | Watch the page for content added or edited after load (SPAs, infinite scroll) and scan it automatically. Off by default: auto mode wraps matches in spans, which can conflict with frameworks (React, Vue, …) that own those text nodes — calling `evipedia.scan()` after your own renders is the safer alternative there |
 | `debug` | `false` | Log matching/loading diagnostics to the console |
 
 ## API
