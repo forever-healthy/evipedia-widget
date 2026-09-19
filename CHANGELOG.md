@@ -1,6 +1,11 @@
 # Evipedia Widget - Change Log
 
 
+### v1.0.9 — 2026-09-19
+
+* Unicode-aware word boundaries: terms no longer match inside words with non-ASCII letters, e.g. "gegen" (a Kudzu alias) inside German "gegenüber"
+* "gegen" (German for "against") is no longer auto-highlighted on its own — explicit data-evipedia marks still work
+
 ### v1.0.8 — 2026-09-18
 
 * Auto mode now matches plurals: a trailing "s" ("statins", "GLP-1s", "AGEs") links to the singular's review. An uppercase "S" never pluralises an acronym ("AGES" is not AGE)

@@ -18,7 +18,7 @@
 (function (global) {
   "use strict";
 
-  var VERSION = "1.0.8";
+  var VERSION = "1.0.9";
 
   var BASE_URL = "https://evipedia.ai"; // where reviews.json and reviews are served
   var ATTR = "data-evipedia";           // attribute that marks opt-in terms
@@ -50,7 +50,8 @@
   // Keep this list tiny and deliberate — only add a term after confirming its
   // everyday meaning is almost never the intervention.
   var AUTO_STOPWORDS = { "his": 1, "gal": 1, "sar": 1, "acid": 1, "adam": 1, "molly": 1,
-    "elder": 1, "bailing": 1, "vegetal": 1, "melissa": 1 };
+    "elder": 1, "bailing": 1, "vegetal": 1, "melissa": 1,
+    "gegen": 1 };  // gegen: German "against" (Kudzu alias)
 
   var config = null;         // resolved options, set by init()
   var indexPromise = null;   // Promise<{ byKey, names }>, reviews.json fetched once
@@ -201,7 +202,7 @@
     // Ties keep first-in-array order.
     function altScore(key, review) {
       var cn = norm(review.canonical_name);
-      var named = new RegExp("(^|[^a-z0-9])" + escapeRegExp(key) + "($|[^a-z0-9])").test(cn);
+      var named = new RegExp("(^|[^\\p{L}\\p{N}])" + escapeRegExp(key) + "($|[^\\p{L}\\p{N}])", "u").test(cn);
       return (isGeneralTopic(review) ? 2 : 0) + (named ? 1 : 0);
     }
     function claimAlt(k, review) {
@@ -449,16 +450,18 @@
     // retried against the shorter names nested inside it — see nameLenAt().
     data.__list = list;
     data.__lower = list.map(function (n) { return n.toLowerCase(); });
-    // (s?) also matches a plural — "statins", "GLP-1s" — looked up by the singular.
+    // Word boundaries are Unicode-aware (\p{L}\p{N}), so "gegen" doesn't match
+    // inside "gegenüber". (s?) also matches a plural — "statins", "GLP-1s" —
+    // looked up by the singular.
     data.__pattern = list.length
-      ? new RegExp("(^|[^A-Za-z0-9])(" + list.map(escapeRegExp).join("|") + ")(s?)(?![A-Za-z0-9])", "gi")
+      ? new RegExp("(^|[^\\p{L}\\p{N}])(" + list.map(escapeRegExp).join("|") + ")(s?)(?![\\p{L}\\p{N}])", "giu")
       : null;
     return data.__pattern;
   }
 
   function boundaryAt(text, i) {
     var c = text.charAt(i);
-    return !c || !/[A-Za-z0-9]/.test(c);
+    return !c || !/[\p{L}\p{N}]/u.test(c);
   }
 
   // Plural suffix after the name at text[start, start+len): "s", "S" or "". An
