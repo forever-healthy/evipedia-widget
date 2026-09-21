@@ -18,7 +18,7 @@
 (function (global) {
   "use strict";
 
-  var VERSION = "1.0.9";
+  var VERSION = "1.0.10";
 
   var BASE_URL = "https://evipedia.ai"; // where reviews.json and reviews are served
   var ATTR = "data-evipedia";           // attribute that marks opt-in terms
@@ -288,6 +288,10 @@
     return s;
   }
 
+  // With a card open, ms to rest on another term before switching to its card
+  // (longer than showDelay, so crossing terms on the way into a card is ignored).
+  var SWITCH_DELAY = 400;
+
   function createUI() {
     var host = document.createElement("div");
     host.setAttribute("data-evipedia-cardhost", "");
@@ -315,7 +319,8 @@
 
     var card = root.querySelector(".card");
     var content = root.querySelector(".content");
-    var hideTimer;
+    var hideTimer, showTimer;
+    var current = null;  // the term the card is showing, for inBridge()
 
     function position(term) {
       var r = term.getBoundingClientRect();
@@ -343,9 +348,31 @@
         "</div>";
     }
 
-    // Keep the card open while the pointer is inside it.
-    card.addEventListener("mouseenter", function () { clearTimeout(hideTimer); });
-    card.addEventListener("mouseleave", function () { hideTimer = setTimeout(hide, config.hideDelay); });
+    // Keep the card open while the pointer is inside it, and cancel any pending
+    // switch to a term the pointer crossed on its way in.
+    card.addEventListener("mouseenter", function () {
+      clearTimeout(hideTimer);
+      clearTimeout(showTimer);
+    });
+    card.addEventListener("mouseleave", scheduleHide);
+
+    // The gap between the shown term and the card (below or above it), spanning
+    // the card's width. Moving from a term to its card crosses this gap — and
+    // often the next line's term — so the gap counts as part of the card.
+    function inBridge(x, y) {
+      if (!current || !isShown()) return false;
+      var a = current.getBoundingClientRect(), c = card.getBoundingClientRect();
+      if (x < Math.min(c.left, a.left) || x > Math.max(c.right, a.right)) return false;
+      return c.top >= a.bottom
+        ? y >= a.bottom && y <= c.top
+        : y >= c.bottom && y <= a.top;
+    }
+    document.addEventListener("mousemove", function (e) {
+      if (inBridge(e.clientX, e.clientY)) {
+        clearTimeout(hideTimer);
+        clearTimeout(showTimer);
+      }
+    }, { passive: true });
 
     // Touch dismissal: a tap anywhere outside closes the card, while a tap inside
     // it (e.g. the "See the review" link) is preserved — stopPropagation keeps that
@@ -355,34 +382,54 @@
 
     function show(term, review) {
       clearTimeout(hideTimer);
+      clearTimeout(showTimer);
+      current = term;
       render(review);
       card.classList.add("on");
       position(term);
     }
 
     function hide() { card.classList.remove("on"); }
+    function isShown() { return card.classList.contains("on"); }
 
-    function scheduleHide() { hideTimer = setTimeout(hide, config.hideDelay); }
+    // Clear first: an orphaned earlier timer would otherwise still fire and close
+    // the card after the pointer has reached it.
+    function scheduleHide() {
+      clearTimeout(hideTimer);
+      hideTimer = setTimeout(hide, config.hideDelay);
+    }
 
-    return { show: show, scheduleHide: scheduleHide };
+    // Show `term`'s card after a hover delay. With a card already open, switching
+    // to another term needs a longer rest on it, so merely crossing terms on the
+    // way into the card never flashes their cards.
+    function queueShow(term, review, x, y) {
+      clearTimeout(showTimer);
+      if (isShown() && term === current) { clearTimeout(hideTimer); return; }
+      if (inBridge(x, y)) return;  // on the way from the shown term into its card
+      clearTimeout(hideTimer);     // keep the open card until the switch (no flicker)
+      showTimer = setTimeout(function () { show(term, review); },
+        isShown() ? SWITCH_DELAY : config.showDelay);
+    }
+
+    function cancelShow() { clearTimeout(showTimer); }
+
+    return { show: show, queueShow: queueShow, cancelShow: cancelShow, scheduleHide: scheduleHide };
   }
 
   // ---- term binding & scanning --------------------------------------------
 
   function bind(term, review) {
-    var showTimer;
-    term.addEventListener("mouseenter", function () {
-      showTimer = setTimeout(function () { ui.show(term, review); }, config.showDelay);
+    term.addEventListener("mouseenter", function (e) {
+      ui.queueShow(term, review, e.clientX, e.clientY);
     });
     term.addEventListener("mouseleave", function () {
-      clearTimeout(showTimer);
+      ui.cancelShow();
       ui.scheduleHide();
     });
     // Touch devices have no hover — a tap opens the card immediately. stopPropagation
     // keeps the document-level dismiss handler (see createUI) from closing it again.
     term.addEventListener("click", function (e) {
       e.stopPropagation();
-      clearTimeout(showTimer);
       ui.show(term, review);
     });
   }
@@ -451,17 +498,23 @@
     data.__list = list;
     data.__lower = list.map(function (n) { return n.toLowerCase(); });
     // Word boundaries are Unicode-aware (\p{L}\p{N}), so "gegen" doesn't match
-    // inside "gegenüber". (s?) also matches a plural — "statins", "GLP-1s" —
-    // looked up by the singular.
+    // inside "gegenüber", and a term followed by a dash (any \p{Pd}, or U+2212
+    // minus) plus a digit is part of a number range ("C10-30 Alkyl Acrylate"),
+    // not the term — see endsAt(). (s?) also matches a plural — "statins",
+    // "GLP-1s" — looked up by the singular.
     data.__pattern = list.length
-      ? new RegExp("(^|[^\\p{L}\\p{N}])(" + list.map(escapeRegExp).join("|") + ")(s?)(?![\\p{L}\\p{N}])", "giu")
+      ? new RegExp("(^|[^\\p{L}\\p{N}])(" + list.map(escapeRegExp).join("|") + ")(s?)(?![\\p{L}\\p{N}]|[\\p{Pd}\\u2212]\\p{N})", "giu")
       : null;
     return data.__pattern;
   }
 
-  function boundaryAt(text, i) {
+  // Does a name ending at text[i] end on a word boundary? Mirrors the lookahead
+  // in autoPattern(): no letter/digit next, and no dash + digit (number range).
+  function endsAt(text, i) {
     var c = text.charAt(i);
-    return !c || !/[\p{L}\p{N}]/u.test(c);
+    if (!c) return true;
+    if (/[\p{L}\p{N}]/u.test(c)) return false;
+    return !(/[\p{Pd}\u2212]/u.test(c) && /\p{N}/u.test(text.charAt(i + 1)));
   }
 
   // Plural suffix after the name at text[start, start+len): "s", "S" or "". An
@@ -469,7 +522,7 @@
   // returns null there to reject the match.
   function pluralAt(text, start, len, data) {
     var c = text.charAt(start + len);
-    if ((c !== "s" && c !== "S") || !boundaryAt(text, start + len + 1)) return "";
+    if ((c !== "s" && c !== "S") || !endsAt(text, start + len + 1)) return "";
     if (c === "S" && data.acronymForms[norm(text.substr(start, len))]) return null;
     return c;
   }
@@ -484,8 +537,8 @@
       var n = lower[i], len = n.length;
       if (len >= maxLen) continue;                       // longest-first: not there yet
       if (lowerText.substr(start, len) !== n) continue;
-      if (!boundaryAt(lowerText, start + len) &&
-          !(lowerText.charAt(start + len) === "s" && boundaryAt(lowerText, start + len + 1))) continue;
+      if (!endsAt(lowerText, start + len) &&
+          !(lowerText.charAt(start + len) === "s" && endsAt(lowerText, start + len + 1))) continue;
       return len;
     }
     return 0;

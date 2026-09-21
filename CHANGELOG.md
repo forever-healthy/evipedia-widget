@@ -1,6 +1,12 @@
 # Evipedia Widget - Change Log
 
 
+### v1.0.10 — 2026-09-21
+
+* Hover card on stacked terms: moving from a term down (or up) into its card no longer switches to the card of a term on the next line. The gap between term and card counts as part of the card, and switching to another term while a card is open needs a longer rest on it (400 ms)
+* Fixed the card sometimes closing while the pointer was already on it (a stale hide timer from an earlier term still fired)
+* Number ranges: a term directly followed by a dash plus a digit is no longer matched, e.g. "C10" (an MCT alias) in "C10-30 Alkyl Acrylate"
+
 ### v1.0.9 — 2026-09-19
 
 * Unicode-aware word boundaries: terms no longer match inside words with non-ASCII letters, e.g. "gegen" (a Kudzu alias) inside German "gegenüber"
