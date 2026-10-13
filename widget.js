@@ -18,7 +18,7 @@
 (function (global) {
   "use strict";
 
-  var VERSION = "1.0.10";
+  var VERSION = "1.0.11";
 
   var BASE_URL = "https://evipedia.ai"; // where reviews.json and reviews are served
   var ATTR = "data-evipedia";           // attribute that marks opt-in terms
@@ -51,7 +51,7 @@
   // everyday meaning is almost never the intervention.
   var AUTO_STOPWORDS = { "his": 1, "gal": 1, "sar": 1, "acid": 1, "adam": 1, "molly": 1,
     "elder": 1, "bailing": 1, "vegetal": 1, "melissa": 1,
-    "gegen": 1 };  // gegen: German "against" (Kudzu alias)
+    "gegen": 1, "may": 1 };  // gegen: German "against" (Kudzu alias); may: modal verb (Hawthorn alias)
 
   var config = null;         // resolved options, set by init()
   var indexPromise = null;   // Promise<{ byKey, names }>, reviews.json fetched once
