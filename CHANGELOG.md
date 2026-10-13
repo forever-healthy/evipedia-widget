@@ -1,6 +1,10 @@
 # Evipedia Widget - Change Log
 
 
+### v1.0.11 — 2026-10-13
+
+* "May" (a Hawthorn alias) is no longer auto-highlighted — it collided with the verb and the month. Explicit data-evipedia marks still work
+
 ### v1.0.10 — 2026-09-21
 
 * Hover card on stacked terms: moving from a term down (or up) into its card no longer switches to the card of a term on the next line. The gap between term and card counts as part of the card, and switching to another term while a card is open needs a longer rest on it (400 ms)
