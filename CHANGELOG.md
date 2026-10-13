@@ -1,10 +1,6 @@
 # Evipedia Widget - Change Log
 
 
-### v1.0.11 — 2026-10-13
-
-* "may" is no longer auto-matched: the modal verb ("any benefit may be smaller") was linked to Common Hawthorn, which lists "May" as an alias
-
 ### v1.0.10 — 2026-09-21
 
 * Hover card on stacked terms: moving from a term down (or up) into its card no longer switches to the card of a term on the next line. The gap between term and card counts as part of the card, and switching to another term while a card is open needs a longer rest on it (400 ms)
